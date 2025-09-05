@@ -6,6 +6,274 @@
     <title>我的人生-我獨自升級</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+
+            window.attributes = { str: 5, int: 5, con: 5, dex: 5, men: 5, wit: 5 };
+            window.remainingPoints = 30;
+            window.exp = 0;
+            window.level = 1;
+            window.expPerLevel = 200;
+            window.currentHp = 100;
+            window.currentMp = 100;
+            window.currentQuests = [];
+            window.rewardAttributes = { str: 0, int: 0, con: 0, dex: 0, men: 0, wit: 0 };
+            
+            window.updateStatus = (message, isError = false) => {
+                const statusMessage = document.getElementById('status-message');
+                statusMessage.textContent = message;
+                statusMessage.style.color = isError ? '#EF4444' : '#E0E0E0';
+                statusMessage.classList.remove('hidden');
+            };
+
+            window.updateUI = () => {
+                const attributes = window.attributes;
+                document.getElementById('remaining-points').textContent = window.remainingPoints;
+                for (const attr in attributes) {
+                    document.getElementById(`${attr}-value`).textContent = attributes[attr];
+                }
+                
+                const rewardAttributes = window.rewardAttributes;
+                const rewardAttrsControls = document.getElementById('reward-attrs-controls');
+                rewardAttrsControls.innerHTML = '';
+                for (const attr in rewardAttributes) {
+                    const attrItem = document.createElement('div');
+                    attrItem.classList.add('flex', 'items-center', 'gap-1');
+                    attrItem.innerHTML = `
+                        <span class="text-white text-sm">${attr.toUpperCase()}:</span>
+                        <span id="reward-${attr}-value" class="text-yellow-400 font-bold">${rewardAttributes[attr]}</span>
+                        <div class="flex ml-auto">
+                            <button class="attribute-btn !w-6 !h-6 !text-sm" data-reward-attr="${attr}" data-action="decrease">-</button>
+                            <button class="attribute-btn !w-6 !h-6 !text-sm" data-reward-attr="${attr}" data-action="increase">+</button>
+                        </div>
+                    `;
+                    rewardAttrsControls.appendChild(attrItem);
+                }
+                
+                const atk = 10 + (attributes.str * 5) + (attributes.dex * 5);
+                const matk = 10 + (attributes.int * 5) + (attributes.wit * 5);
+                const def = 10 + (attributes.con * 10);
+                const mdef = 10 + (attributes.men * 10);
+                const maxHp = 100 + (attributes.con * 10);
+                const maxMp = 100 + (attributes.men * 10);
+
+                document.getElementById('atk-value').textContent = atk;
+                document.getElementById('matk-value').textContent = matk;
+                document.getElementById('def-value').textContent = def;
+                document.getElementById('mdef-value').textContent = mdef;
+                
+                document.getElementById('hp-value').textContent = `${Math.max(0, window.currentHp)} / ${maxHp}`;
+                const hpPercentage = (Math.max(0, window.currentHp) / maxHp) * 100;
+                document.getElementById('hp-bar').style.width = `${hpPercentage}%`;
+
+                document.getElementById('mp-value').textContent = `${Math.max(0, window.currentMp)} / ${maxMp}`;
+                const mpPercentage = (Math.max(0, window.currentMp) / maxMp) * 100;
+                document.getElementById('mp-bar').style.width = `${mpPercentage}%`;
+
+                const expPercentage = (window.exp / window.expPerLevel) * 100;
+                document.getElementById('exp-value').textContent = `${window.exp} / ${window.expPerLevel}`;
+                document.getElementById('exp-bar').style.width = `${expPercentage}%`;
+                document.getElementById('level').textContent = window.level;
+            };
+
+            window.increaseAttribute = (attr) => {
+                if (window.remainingPoints > 0) {
+                    window.attributes[attr]++;
+                    window.remainingPoints--;
+                    window.updateUI();
+                }
+            };
+
+            window.decreaseAttribute = (attr) => {
+                if (window.attributes[attr] > 5) {
+                    window.attributes[attr]--;
+                    window.remainingPoints++;
+                    window.updateUI();
+                }
+            };
+            
+            document.querySelectorAll('.increase-btn').forEach(button => {
+                button.addEventListener('click', (e) => window.increaseAttribute(e.target.dataset.attr));
+            });
+
+            document.querySelectorAll('.decrease-btn').forEach(button => {
+                button.addEventListener('click', (e) => window.decreaseAttribute(e.target.dataset.attr));
+            });
+
+            const addBtn = document.getElementById('add-task-btn');
+            const taskInput = document.getElementById('task-input');
+            const rewardExpInput = document.getElementById('reward-exp');
+            const costHpInput = document.getElementById('cost-hp');
+            const costMpInput = document.getElementById('cost-mp');
+            const recoverHpInput = document.getElementById('recover-hp');
+            const recoverMpInput = document.getElementById('recover-mp');
+            const rewardSkillsInput = document.getElementById('reward-skills');
+            const questList = document.getElementById('quest-list');
+            const statusMessage = document.getElementById('status-message');
+            const rewardAttrsControls = document.getElementById('reward-attrs-controls');
+            
+            window.renderQuests = () => {
+                if (window.currentQuests.length === 0) {
+                     questList.innerHTML = '<p class="text-gray-500 italic mt-8">你的任務清單是空的。請在上方輸入任務並新增！</p>';
+                } else {
+                     questList.innerHTML = '';
+                     window.currentQuests.forEach((quest, index) => {
+                        const questItem = document.createElement('div');
+                        questItem.classList.add('quest-item');
+                        questItem.dataset.questIndex = index;
+                        
+                        let costHtml = `<span class="text-red-400 font-bold">HP -${quest.hpCost}</span>，<span class="text-blue-400 font-bold">MP -${quest.mpCost}</span>`;
+                        if (quest.recover.hp > 0 || quest.recover.mp > 0) {
+                            costHtml += `，恢復：<span class="text-green-400 font-bold">HP +${quest.recover.hp}</span>，<span class="text-blue-400 font-bold">MP +${quest.recover.mp}</span>`;
+                        }
+                        
+                        let attrRewardsHtml = Object.keys(quest.rewards.attributes)
+                            .filter(attr => quest.rewards.attributes[attr] > 0)
+                            .map(attr => `${attr.toUpperCase()}+${quest.rewards.attributes[attr]}`)
+                            .join(', ');
+
+                        questItem.innerHTML = `
+                            <div class="quest-title">${quest.questDescription}</div>
+                            <div class="text-sm mt-2">
+                                <span class="font-bold">經驗值獎勵：</span><span class="text-green-400">${quest.rewards.exp}</span>
+                            </div>
+                            <div class="text-sm mt-1">
+                                <span class="font-bold">能力值獎勵：</span><span class="text-yellow-400">${attrRewardsHtml || '無'}</span>
+                            </div>
+                            <div class="text-sm mt-1">
+                                <span class="font-bold">消耗/恢復：</span>${costHtml}
+                            </div>
+                            <div class="flex space-x-2 mt-4">
+                                <button class="complete-btn">完成</button>
+                                <button class="delete-btn">刪除</button>
+                            </div>
+                        `;
+                        questList.appendChild(questItem);
+                    });
+                }
+            };
+            
+            rewardAttrsControls.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.tagName === 'BUTTON') {
+                    const attr = target.dataset.rewardAttr;
+                    const action = target.dataset.action;
+                    
+                    if (action === 'increase') {
+                        window.rewardAttributes[attr]++;
+                    } else if (action === 'decrease' && window.rewardAttributes[attr] > 0) {
+                        window.rewardAttributes[attr]--;
+                    }
+                    window.updateUI();
+                }
+            });
+
+            addBtn.addEventListener('click', () => {
+                const questDescription = taskInput.value.trim();
+                if (!questDescription) {
+                    window.updateStatus('請輸入一個任務描述！', true);
+                    return;
+                }
+
+                const rewardSkills = rewardSkillsInput.value.trim() !== '' ? rewardSkillsInput.value.split(',').map(skill => skill.trim()) : [];
+                
+                const rewardExp = parseInt(rewardExpInput.value) || 0;
+                const costHp = parseInt(costHpInput.value) || 0;
+                const costMp = parseInt(costMpInput.value) || 0;
+                const recoverHp = parseInt(recoverHpInput.value) || 0;
+                const recoverMp = parseInt(recoverMpInput.value) || 0;
+
+                const newQuest = {
+                    questDescription: questDescription,
+                    hpCost: costHp,
+                    mpCost: costMp,
+                    recover: {
+                        hp: recoverHp,
+                        mp: recoverMp
+                    },
+                    rewards: {
+                        exp: rewardExp,
+                        attributes: {...window.rewardAttributes},
+                        skills: rewardSkills
+                    }
+                };
+
+                window.currentQuests.push(newQuest);
+                window.renderQuests();
+                taskInput.value = '';
+                window.updateStatus('任務已新增。', false);
+                
+                for (const attr in window.rewardAttributes) {
+                    window.rewardAttributes[attr] = 0;
+                }
+                window.updateUI();
+            });
+
+            questList.addEventListener('click', (e) => {
+                const questItem = e.target.closest('.quest-item');
+                if (!questItem) return;
+
+                const index = parseInt(questItem.dataset.questIndex);
+                const quest = window.currentQuests[index];
+
+                if (e.target.classList.contains('complete-btn')) {
+                    const maxHp = 100 + (window.attributes.con * 10);
+                    const maxMp = 100 + (window.attributes.men * 10);
+
+                    const finalHp = window.currentHp - quest.hpCost + quest.recover.hp;
+                    const finalMp = window.currentMp - quest.mpCost + quest.recover.mp;
+
+                    if (finalHp < 0 || finalMp < 0) {
+                         window.updateStatus('你的體力或專注力不足以完成此任務！', true);
+                         return;
+                    }
+                    
+                    window.currentHp = finalHp;
+                    window.currentMp = finalMp;
+                    
+                    window.currentHp = Math.min(window.currentHp, maxHp);
+                    window.currentMp = Math.min(window.currentMp, maxMp);
+                    
+                    window.exp += quest.rewards.exp;
+                    if (window.exp >= window.expPerLevel) {
+                        window.level++;
+                        window.exp = window.exp - window.expPerLevel;
+                        window.expPerLevel += 50;
+                        window.updateStatus(`恭喜你！等級升級到 LV.${window.level}！`, false);
+                    }
+
+                    for (const attr in quest.rewards.attributes) {
+                        window.attributes[attr] += quest.rewards.attributes[attr];
+                    }
+
+                    if (quest.rewards.skills && quest.rewards.skills.length > 0) {
+                        const learnedSkillsList = document.getElementById('learned-skills');
+                        quest.rewards.skills.forEach(skill => {
+                            const listItem = document.createElement('li');
+                            listItem.textContent = skill;
+                            learnedSkillsList.appendChild(listItem);
+                        });
+                    }
+                    
+                    window.currentQuests.splice(index, 1);
+
+                    window.updateUI();
+                    window.renderQuests();
+                    
+                    window.updateStatus('任務已完成！獎勵已匯入。', false);
+
+                } else if (e.target.classList.contains('delete-btn')) {
+                    window.currentQuests.splice(index, 1);
+                    window.renderQuests();
+                    window.updateStatus('任務已刪除。', false);
+                }
+            });
+            
+            window.updateUI();
+            window.renderQuests();
+        });
+    </script>
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -280,8 +548,7 @@
     <div id="player-status" class="card" style="grid-area: player_status;">
         <h2 class="title">玩家狀態</h2>
         <div class="flex items-center space-x-4 mb-4">
-            <div class="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
-                <img src="image_3ac7fe.jpg" class="w-full h-full object-cover rounded-full" alt="玩家頭像">
+            <div class="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center">
             </div>
             <div>
                 <div class="text-xl font-bold mb-1">我的人生 - 我獨自升級</div>
@@ -319,6 +586,7 @@
                 <div id="mp-bar" class="bar-fill bg-blue-500"></div>
             </div>
         </div>
+        
     </div>
 
     <div id="attributes-card" class="card" style="grid-area: attributes;">
@@ -532,292 +800,5 @@
         </div>
     </div>
 </div>
-
-<script>
-    const attributes = {
-        str: 5, int: 5, con: 5, dex: 5, men: 5, wit: 5
-    };
-    let remainingPoints = 30;
-    
-    // 新增經驗值與等級變數
-    let exp = 0;
-    let level = 1;
-    let expPerLevel = 200;
-    
-    // 生命值與專注值變數
-    let currentHp = 100;
-    let currentMp = 100;
-
-    // 儲存任務的陣列
-    let currentQuests = [];
-    
-    const rewardAttributes = {
-        str: 0, int: 0, con: 0, dex: 0, men: 0, wit: 0
-    };
-
-    const updateUI = () => {
-        document.getElementById('remaining-points').textContent = remainingPoints;
-        for (const attr in attributes) {
-            document.getElementById(`${attr}-value`).textContent = attributes[attr];
-        }
-        
-        // 更新獎勵能力值 UI
-        const rewardAttrsControls = document.getElementById('reward-attrs-controls');
-        rewardAttrsControls.innerHTML = '';
-        for (const attr in rewardAttributes) {
-            const attrItem = document.createElement('div');
-            attrItem.classList.add('flex', 'items-center', 'gap-1');
-            attrItem.innerHTML = `
-                <span class="text-white text-sm">${attr.toUpperCase()}:</span>
-                <span id="reward-${attr}-value" class="text-yellow-400 font-bold">${rewardAttributes[attr]}</span>
-                <div class="flex ml-auto">
-                    <button class="attribute-btn !w-6 !h-6 !text-sm" data-reward-attr="${attr}" data-action="decrease">-</button>
-                    <button class="attribute-btn !w-6 !h-6 !text-sm" data-reward-attr="${attr}" data-action="increase">+</button>
-                </div>
-            `;
-            rewardAttrsControls.appendChild(attrItem);
-        }
-        
-        // 根據核心能力值計算戰鬥與生存數值
-        const atk = 10 + (attributes.str * 5) + (attributes.dex * 5);
-        const matk = 10 + (attributes.int * 5) + (attributes.wit * 5);
-        const def = 10 + (attributes.con * 10);
-        const mdef = 10 + (attributes.men * 10);
-        const maxHp = 100 + (attributes.con * 10);
-        const maxMp = 100 + (attributes.men * 10);
-
-        // 更新戰鬥與生存數值顯示
-        document.getElementById('atk-value').textContent = atk;
-        document.getElementById('matk-value').textContent = matk;
-        document.getElementById('def-value').textContent = def;
-        document.getElementById('mdef-value').textContent = mdef;
-        
-        // 更新生命值顯示
-        document.getElementById('hp-value').textContent = `${Math.max(0, currentHp)} / ${maxHp}`;
-        const hpPercentage = (Math.max(0, currentHp) / maxHp) * 100;
-        document.getElementById('hp-bar').style.width = `${hpPercentage}%`;
-
-        // 更新專注值顯示
-        document.getElementById('mp-value').textContent = `${Math.max(0, currentMp)} / ${maxMp}`;
-        const mpPercentage = (Math.max(0, currentMp) / maxMp) * 100;
-        document.getElementById('mp-bar').style.width = `${mpPercentage}%`;
-
-        // 更新經驗值與等級顯示
-        const expPercentage = (exp / expPerLevel) * 100;
-        document.getElementById('exp-value').textContent = `${exp} / ${expPerLevel}`;
-        document.getElementById('exp-bar').style.width = `${expPercentage}%`;
-        document.getElementById('level').textContent = level;
-    };
-
-    const increaseAttribute = (attr) => {
-        if (remainingPoints > 0) {
-            attributes[attr]++;
-            remainingPoints--;
-            updateUI();
-        }
-    };
-
-    const decreaseAttribute = (attr) => {
-        if (attributes[attr] > 5) {
-            attributes[attr]--;
-            remainingPoints++;
-            updateUI();
-        }
-    };
-    
-    document.querySelectorAll('.increase-btn').forEach(button => {
-        button.addEventListener('click', (e) => increaseAttribute(e.target.dataset.attr));
-    });
-
-    document.querySelectorAll('.decrease-btn').forEach(button => {
-        button.addEventListener('click', (e) => decreaseAttribute(e.target.dataset.attr));
-    });
-
-    const addBtn = document.getElementById('add-task-btn');
-    const taskInput = document.getElementById('task-input');
-    const rewardExpInput = document.getElementById('reward-exp');
-    const costHpInput = document.getElementById('cost-hp');
-    const costMpInput = document.getElementById('cost-mp');
-    const recoverHpInput = document.getElementById('recover-hp');
-    const recoverMpInput = document.getElementById('recover-mp');
-    const rewardSkillsInput = document.getElementById('reward-skills');
-    const questList = document.getElementById('quest-list');
-    const statusMessage = document.getElementById('status-message');
-    const rewardAttrsControls = document.getElementById('reward-attrs-controls');
-
-    const updateStatus = (message, isError = false) => {
-        statusMessage.textContent = message;
-        statusMessage.style.color = isError ? '#EF4444' : '#E0E0E0';
-        statusMessage.classList.remove('hidden');
-    };
-    
-    const renderQuests = () => {
-        if (currentQuests.length === 0) {
-             questList.innerHTML = '<p class="text-gray-500 italic mt-8">你的任務清單是空的。請在上方輸入任務並新增！</p>';
-        } else {
-             questList.innerHTML = '';
-             currentQuests.forEach((quest, index) => {
-                const questItem = document.createElement('div');
-                questItem.classList.add('quest-item');
-                questItem.dataset.questIndex = index;
-                
-                let costHtml = `<span class="text-red-400 font-bold">HP -${quest.hpCost}</span>，<span class="text-blue-400 font-bold">MP -${quest.mpCost}</span>`;
-                if (quest.recover.hp > 0 || quest.recover.mp > 0) {
-                    costHtml += `，恢復：<span class="text-green-400 font-bold">HP +${quest.recover.hp}</span>，<span class="text-blue-400 font-bold">MP +${quest.recover.mp}</span>`;
-                }
-                
-                let attrRewardsHtml = Object.keys(quest.rewards.attributes)
-                    .filter(attr => quest.rewards.attributes[attr] > 0)
-                    .map(attr => `${attr.toUpperCase()}+${quest.rewards.attributes[attr]}`)
-                    .join(', ');
-
-                questItem.innerHTML = `
-                    <div class="quest-title">${quest.questDescription}</div>
-                    <div class="text-sm mt-2">
-                        <span class="font-bold">經驗值獎勵：</span><span class="text-green-400">${quest.rewards.exp}</span>
-                    </div>
-                    <div class="text-sm mt-1">
-                        <span class="font-bold">能力值獎勵：</span><span class="text-yellow-400">${attrRewardsHtml || '無'}</span>
-                    </div>
-                    <div class="text-sm mt-1">
-                        <span class="font-bold">消耗/恢復：</span>${costHtml}
-                    </div>
-                    <div class="flex space-x-2 mt-4">
-                        <button class="complete-btn">完成</button>
-                        <button class="delete-btn">刪除</button>
-                    </div>
-                `;
-                questList.appendChild(questItem);
-            });
-        }
-    };
-    
-    rewardAttrsControls.addEventListener('click', (e) => {
-        const target = e.target;
-        if (target.tagName === 'BUTTON') {
-            const attr = target.dataset.rewardAttr;
-            const action = target.dataset.action;
-            
-            if (action === 'increase') {
-                rewardAttributes[attr]++;
-            } else if (action === 'decrease' && rewardAttributes[attr] > 0) {
-                rewardAttributes[attr]--;
-            }
-            updateUI();
-        }
-    });
-
-    addBtn.addEventListener('click', () => {
-        const questDescription = taskInput.value.trim();
-        if (!questDescription) {
-            updateStatus('請輸入一個任務描述！', true);
-            return;
-        }
-
-        const rewardSkills = rewardSkillsInput.value.trim() !== '' ? rewardSkillsInput.value.split(',').map(skill => skill.trim()) : [];
-
-        const newQuest = {
-            questDescription: questDescription,
-            hpCost: parseInt(costHpInput.value),
-            mpCost: parseInt(costMpInput.value),
-            recover: {
-                hp: parseInt(recoverHpInput.value),
-                mp: parseInt(recoverMpInput.value)
-            },
-            rewards: {
-                exp: parseInt(rewardExpInput.value),
-                attributes: {...rewardAttributes},
-                skills: rewardSkills
-            }
-        };
-
-        currentQuests.push(newQuest);
-        renderQuests();
-        taskInput.value = '';
-        updateStatus('任務已新增。', false);
-        
-        // 重設能力值獎勵
-        for (const attr in rewardAttributes) {
-            rewardAttributes[attr] = 0;
-        }
-        updateUI();
-    });
-
-    questList.addEventListener('click', (e) => {
-        const questItem = e.target.closest('.quest-item');
-        if (!questItem) return;
-
-        const index = parseInt(questItem.dataset.questIndex);
-        const quest = currentQuests[index];
-
-        if (e.target.classList.contains('complete-btn')) {
-            const maxHp = 100 + (attributes.con * 10);
-            const maxMp = 100 + (attributes.men * 10);
-
-            // 檢查是否還有足夠的HP和MP
-            const finalHp = currentHp - quest.hpCost + quest.recover.hp;
-            const finalMp = currentMp - quest.mpCost + quest.recover.mp;
-
-            if (finalHp < 0 || finalMp < 0) {
-                 updateStatus('你的體力或專注力不足以完成此任務！', true);
-                 return;
-            }
-            
-            // 扣除並恢復HP與MP
-            currentHp = finalHp;
-            currentMp = finalMp;
-            
-            // 確保HP和MP不會超過最大值
-            currentHp = Math.min(currentHp, maxHp);
-            currentMp = Math.min(currentMp, maxMp);
-            
-            // 增加經驗值
-            exp += quest.rewards.exp;
-            if (exp >= expPerLevel) {
-                level++;
-                exp = exp - expPerLevel;
-                // 每次升級，增加經驗值需求
-                expPerLevel += 50;
-                updateStatus(`恭喜你！等級升級到 LV.${level}！`, false);
-            }
-
-            // 增加能力值
-            for (const attr in quest.rewards.attributes) {
-                attributes[attr] += quest.rewards.attributes[attr];
-            }
-
-            // 學習新技能
-            if (quest.rewards.skills && quest.rewards.skills.length > 0) {
-                const learnedSkillsList = document.getElementById('learned-skills');
-                const unlockedSkillsList = document.getElementById('unlocked-skills');
-                quest.rewards.skills.forEach(skill => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = skill;
-                    learnedSkillsList.appendChild(listItem);
-                });
-            }
-            
-            // 移除任務
-            currentQuests.splice(index, 1);
-
-            // 更新UI
-            updateUI();
-            renderQuests();
-            
-            updateStatus('任務已完成！獎勵已匯入。', false);
-
-        } else if (e.target.classList.contains('delete-btn')) {
-            // 刪除任務
-            currentQuests.splice(index, 1);
-            renderQuests();
-            updateStatus('任務已刪除。', false);
-        }
-    });
-    
-    // 初始化 UI
-    updateUI();
-    renderQuests();
-</script>
-
 </body>
 </html>
