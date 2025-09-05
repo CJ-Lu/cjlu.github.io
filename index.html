@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的人生-我獨自升級</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #E0E0E0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            gap: 2rem;
+            grid-template-areas:
+                "player_status player_status"
+                "attributes quests"
+                "skills skills";
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+                grid-template-areas:
+                    "player_status player_status"
+                    "attributes quests"
+                    "battle-stats quests"
+                    "skills quests";
+            }
+        }
+
+        .card {
+            background-color: #1E1E1E;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #FFF;
+            text-align: center;
+            letter-spacing: 0.1rem;
+        }
+
+        .stat-bar {
+            height: 1rem;
+            background-color: #333;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.5s ease-in-out;
+            border-radius: 0.5rem;
+        }
+
+        .stat-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .attribute-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .attribute-item:last-child {
+            border-bottom: none;
+        }
+
+        .attribute-name {
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        .attribute-value {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: #4CAF50;
+        }
+        
+        .attribute-btn {
+            background-color: #444;
+            color: #FFF;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 9999px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .attribute-btn:hover {
+            background-color: #555;
+        }
+
+        .attribute-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .quest-item {
+            background-color: #2a2a2a;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid #444;
+            transition: transform 0.2s ease-in-out;
+            position: relative;
+        }
+
+        .quest-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .quest-title {
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: #FFA500;
+            margin-bottom: 0.5rem;
+        }
+
+        .quest-reward {
+            font-size: 0.875rem;
+            color: #999;
+        }
+        
+        .skill-item {
+            background-color: #2a2a2a;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #444;
+        }
+
+        .api-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .api-section textarea {
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            color: #E0E0E0;
+            outline: none;
+            resize: vertical;
+        }
+
+        .api-btn {
+            background-color: #6a0dad;
+            color: #fff;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            transition: background-color 0.2s, transform 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .api-btn:hover {
+            background-color: #58008b;
+            transform: translateY(-2px);
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .details-summary {
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .details-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details[open] .details-summary {
+            border-bottom: none;
+        }
+
+        .details-summary-name {
+            font-weight: 600;
+            font-size: 1.125rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .details-summary-name::before {
+            content: "▶";
+            margin-right: 0.5rem;
+            transition: transform 0.2s;
+        }
+
+        details[open] .details-summary-name::before {
+            transform: rotate(90deg);
+        }
+
+        .details-content {
+            padding: 0.75rem;
+            padding-left: 1.5rem;
+            border-bottom: 1px solid #333;
+            color: #aaa;
+            font-size: 0.875rem;
+        }
+        
+        .complete-btn, .delete-btn {
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s;
+        }
+        .complete-btn {
+            background-color: #4CAF50;
+            color: #fff;
+        }
+        .complete-btn:hover {
+            background-color: #45a049;
+        }
+        .delete-btn {
+            background-color: #EF4444;
+            color: #fff;
+        }
+        .delete-btn:hover {
+            background-color: #DC2626;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="player-status" class="card" style="grid-area: player_status;">
+        <h2 class="title">玩家狀態</h2>
+        <div class="flex items-center space-x-4 mb-4">
+            <div class="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
+                <img src="image_3ac7fe.jpg" class="w-full h-full object-cover rounded-full" alt="玩家頭像">
+            </div>
+            <div>
+                <div class="text-xl font-bold mb-1">我的人生 - 我獨自升級</div>
+                <div class="text-lg">等級 <span id="level" class="text-yellow-400 font-bold">1</span></div>
+            </div>
+        </div>
+
+        <!-- 經驗值區塊 -->
+        <div class="mb-4">
+            <div class="stat-label">
+                <span>經驗值 (EXP)</span>
+                <span id="exp-value">0 / 200</span>
+            </div>
+            <div class="stat-bar">
+                <div id="exp-bar" class="bar-fill bg-green-500" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <div class="stat-label">
+                <span>HP (健康值)</span>
+                <span id="hp-value"></span>
+            </div>
+            <div class="stat-bar">
+                <div id="hp-bar" class="bar-fill bg-red-500"></div>
+            </div>
+        </div>
+
+        <div>
+            <div class="stat-label">
+                <span>MP (專注值)</span>
+                <span id="mp-value"></span>
+            </div>
+            <div class="stat-bar">
+                <div id="mp-bar" class="bar-fill bg-blue-500"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="attributes-card" class="card" style="grid-area: attributes;">
+        <h2 class="title">核心能力值</h2>
+        <div class="flex justify-between items-center mb-4">
+            <span class="font-bold text-lg">剩餘點數：</span>
+            <span id="remaining-points" class="text-yellow-400 font-bold text-2xl">30</span>
+        </div>
+        <div id="attributes-list">
+            <!-- STR (執行力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">STR(力量) - 執行力/意志力</div>
+                    <div class="attribute-controls">
+                        <button class="attribute-btn decrease-btn" data-attr="str">-</button>
+                        <span id="str-value" class="attribute-value">5</span>
+                        <button class="attribute-btn increase-btn" data-attr="str">+</button>
+                    </div>
+                </summary>
+                <div class="details-content">
+                    影響你將想法化為行動，並克服障礙的能力，影響完成任務的效率與持久力。                    
+                </div>
+            </details>
+            <!-- INT (學習力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">INT(智力) - 專業知識/學習力</div>
+                    <div class="attribute-controls">
+                        <button class="attribute-btn decrease-btn" data-attr="int">-</button>
+                        <span id="int-value" class="attribute-value">5</span>
+                        <button class="attribute-btn increase-btn" data-attr="int">+</button>
+                    </div>
+                </summary>
+                <div class="details-content">
+                    指你掌握新知、理解複雜概念與解決問題的能力，影響你在特定領域的專業表現與創新思維。
+                </div>
+            </details>
+            <!-- CON (恢復力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">CON(體力) - 健康值/恢復力</div>
+                    <div class="attribute-controls">
+                        <button class="attribute-btn decrease-btn" data-attr="con">-</button>
+                        <span id="con-value" class="attribute-value">5</span>
+                        <button class="attribute-btn increase-btn" data-attr="con">+</button>
+                    </div>
+                </summary>
+                <div class="details-content">
+                    涵蓋身體健康與心理韌性，影響你的專注力、抗壓性與整體續航力。
+                </div>
+            </details>
+            <!-- DEX (應變力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">DEX(敏捷) - 應變力/溝通力</div>
+                    <div class="attribute-controls">
+                        <button class="attribute-btn decrease-btn" data-attr="dex">-</button>
+                        <span id="dex-value" class="attribute-value">5</span>
+                        <button class="attribute-btn increase-btn" data-attr="dex">+</button>
+                    </div>
+                </summary>
+                <div class="details-content">
+                    指你應對突發狀況、快速切換任務，以及有效傳達資訊的能力，影響你社交與合作的成功率。
+                </div>
+            </details>
+            <!-- MEN (專注力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">MEN(精神) - 洞察力/專注力</div>
+                    <div class="attribute-controls">
+                        <button class="attribute-btn decrease-btn" data-attr="men">-</button>
+                        <span id="men-value" class="attribute-value">5</span>
+                        <button class="attribute-btn increase-btn" data-attr="men">+</button>
+                    </div>
+                </summary>
+                <div class="details-content">
+                    指你觀察細節、理解他人情感，並長時間專注於單一任務的能力，影響你的決策品質與效率。
+                </div>
+            </details>
+            <!-- WIT (策略力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">WIT (智慧) - 策略力/決策力</div>
+                    <div class="attribute-controls">
+                        <button class="attribute-btn decrease-btn" data-attr="wit">-</button>
+                        <span id="wit-value" class="attribute-value">5</span>
+                        <button class="attribute-btn increase-btn" data-attr="wit">+</button>
+                    </div>
+                </summary>
+                <div class="details-content">
+                    指你整合資訊、權衡利弊，並做出明智長遠決策的能力，影響你的人生路徑與目標達成率。
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <!-- 戰鬥與生存數值區塊 -->
+    <div id="battle-stats-card" class="card" style="grid-area: battle-stats;">
+        <h2 class="title">戰鬥與生存數值</h2>
+        <div id="battle-stats-list">
+            <!-- ATK (攻擊力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">ATK(攻擊力) - 行動力/影響力</div>
+                    <span id="atk-value" class="attribute-value"></span>
+                </summary>
+                <div class="details-content">
+                    代表你實際創造價值與影響他人的能力。
+                </div>
+            </details>
+            <!-- MATK/MAG (魔法攻擊力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">MATK(魔法攻擊力) - 知識應用力/創造力</div>
+                    <span id="matk-value" class="attribute-value"></span>
+                </summary>
+                <div class="details-content">
+                    代表你運用知識、技能或創意來解決問題的能力。
+                </div>
+            </details>
+            <!-- DEF (防禦力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">DEF(防禦力) - 挫折耐受力/心理抗性</div>
+                    <span id="def-value" class="attribute-value"></span>
+                </summary>
+                <div class="details-content">
+                    代表你面對批評、失敗或壓力時的承受能力。
+                </div>
+            </details>
+            <!-- MDEF (魔法防禦力) -->
+            <details class="details-item">
+                <summary class="details-summary">
+                    <div class="details-summary-name">MDEF(魔法防禦力) - 思維抵抗力</div>
+                    <span id="mdef-value" class="attribute-value"></span>
+                </summary>
+                <div class="details-content">
+                    代表你辨別虛假資訊、抵抗負面情緒或不合理觀點的能力。
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <div id="quests-card" class="card" style="grid-area: quests;">
+        <h2 class="title">任務清單</h2>
+        <details id="manual-task-details" class="card mb-4" open>
+            <summary class="details-summary-name font-bold cursor-pointer">
+                手動新增任務
+            </summary>
+            <div class="api-section mt-4">
+                <textarea id="task-input" rows="3" placeholder="輸入任務描述，例如：完成今天的健身計畫"></textarea>
+                <div class="grid grid-cols-2 gap-4 mt-4 text-white">
+                    <div>
+                        <label class="block mb-1 text-sm">經驗值</label>
+                        <input type="number" id="reward-exp" value="50" min="0" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm">HP 消耗</label>
+                        <input type="number" id="cost-hp" value="10" min="0" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm">MP 消耗</label>
+                        <input type="number" id="cost-mp" value="10" min="0" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                    </div>
+                     <div>
+                        <label class="block mb-1 text-sm">HP 恢復</label>
+                        <input type="number" id="recover-hp" value="0" min="0" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm">MP 恢復</label>
+                        <input type="number" id="recover-mp" value="0" min="0" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                    </div>
+                </div>
+                 <div class="col-span-2 mt-4">
+                    <label class="block mb-1 text-sm">能力值獎勵</label>
+                    <div id="reward-attrs-controls" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <!-- Attributes will be rendered here -->
+                    </div>
+                </div>
+                <div class="col-span-2">
+                    <label class="block mb-1 text-sm">習得技能 (格式: 技能1,技能2...)</label>
+                    <input type="text" id="reward-skills" value="" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                </div>
+                <button id="add-task-btn" class="api-btn mt-4">新增任務</button>
+                <div id="status-message" class="text-center text-sm mt-2 hidden"></div>
+            </div>
+        </details>
+        <div class="h-px bg-gray-600 my-4"></div>
+        <div id="quest-list" class="text-center text-gray-500 italic mt-8">
+            <p>你的任務清單是空的。請在上方輸入任務並新增！</p>
+        </div>
+    </div>
+
+    <div id="skills-card" class="card" style="grid-area: skills;">
+        <h2 class="title">技能樹</h2>
+        <div id="skills-list">
+            <div class="skill-item">
+                <div class="font-bold">已習得技能：</div>
+                <ul class="list-disc list-inside mt-1 text-sm text-gray-300" id="learned-skills">
+                    <li>溝通協調</li>
+                </ul>
+            </div>
+            <div class="skill-item">
+                <div class="font-bold">待解鎖技能：</div>
+                <ul class="list-disc list-inside mt-1 text-sm text-gray-300" id="unlocked-skills">
+                    <li>數據建模</li>
+                    <li>Python 編程</li>
+                    <li>時間管理</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const attributes = {
+        str: 5, int: 5, con: 5, dex: 5, men: 5, wit: 5
+    };
+    let remainingPoints = 30;
+    
+    // 新增經驗值與等級變數
+    let exp = 0;
+    let level = 1;
+    let expPerLevel = 200;
+    
+    // 生命值與專注值變數
+    let currentHp = 100;
+    let currentMp = 100;
+
+    // 儲存任務的陣列
+    let currentQuests = [];
+    
+    const rewardAttributes = {
+        str: 0, int: 0, con: 0, dex: 0, men: 0, wit: 0
+    };
+
+    const updateUI = () => {
+        document.getElementById('remaining-points').textContent = remainingPoints;
+        for (const attr in attributes) {
+            document.getElementById(`${attr}-value`).textContent = attributes[attr];
+        }
+        
+        // 更新獎勵能力值 UI
+        const rewardAttrsControls = document.getElementById('reward-attrs-controls');
+        rewardAttrsControls.innerHTML = '';
+        for (const attr in rewardAttributes) {
+            const attrItem = document.createElement('div');
+            attrItem.classList.add('flex', 'items-center', 'gap-1');
+            attrItem.innerHTML = `
+                <span class="text-white text-sm">${attr.toUpperCase()}:</span>
+                <span id="reward-${attr}-value" class="text-yellow-400 font-bold">${rewardAttributes[attr]}</span>
+                <div class="flex ml-auto">
+                    <button class="attribute-btn !w-6 !h-6 !text-sm" data-reward-attr="${attr}" data-action="decrease">-</button>
+                    <button class="attribute-btn !w-6 !h-6 !text-sm" data-reward-attr="${attr}" data-action="increase">+</button>
+                </div>
+            `;
+            rewardAttrsControls.appendChild(attrItem);
+        }
+        
+        // 根據核心能力值計算戰鬥與生存數值
+        const atk = 10 + (attributes.str * 5) + (attributes.dex * 5);
+        const matk = 10 + (attributes.int * 5) + (attributes.wit * 5);
+        const def = 10 + (attributes.con * 10);
+        const mdef = 10 + (attributes.men * 10);
+        const maxHp = 100 + (attributes.con * 10);
+        const maxMp = 100 + (attributes.men * 10);
+
+        // 更新戰鬥與生存數值顯示
+        document.getElementById('atk-value').textContent = atk;
+        document.getElementById('matk-value').textContent = matk;
+        document.getElementById('def-value').textContent = def;
+        document.getElementById('mdef-value').textContent = mdef;
+        
+        // 更新生命值顯示
+        document.getElementById('hp-value').textContent = `${Math.max(0, currentHp)} / ${maxHp}`;
+        const hpPercentage = (Math.max(0, currentHp) / maxHp) * 100;
+        document.getElementById('hp-bar').style.width = `${hpPercentage}%`;
+
+        // 更新專注值顯示
+        document.getElementById('mp-value').textContent = `${Math.max(0, currentMp)} / ${maxMp}`;
+        const mpPercentage = (Math.max(0, currentMp) / maxMp) * 100;
+        document.getElementById('mp-bar').style.width = `${mpPercentage}%`;
+
+        // 更新經驗值與等級顯示
+        const expPercentage = (exp / expPerLevel) * 100;
+        document.getElementById('exp-value').textContent = `${exp} / ${expPerLevel}`;
+        document.getElementById('exp-bar').style.width = `${expPercentage}%`;
+        document.getElementById('level').textContent = level;
+    };
+
+    const increaseAttribute = (attr) => {
+        if (remainingPoints > 0) {
+            attributes[attr]++;
+            remainingPoints--;
+            updateUI();
+        }
+    };
+
+    const decreaseAttribute = (attr) => {
+        if (attributes[attr] > 5) {
+            attributes[attr]--;
+            remainingPoints++;
+            updateUI();
+        }
+    };
+    
+    document.querySelectorAll('.increase-btn').forEach(button => {
+        button.addEventListener('click', (e) => increaseAttribute(e.target.dataset.attr));
+    });
+
+    document.querySelectorAll('.decrease-btn').forEach(button => {
+        button.addEventListener('click', (e) => decreaseAttribute(e.target.dataset.attr));
+    });
+
+    const addBtn = document.getElementById('add-task-btn');
+    const taskInput = document.getElementById('task-input');
+    const rewardExpInput = document.getElementById('reward-exp');
+    const costHpInput = document.getElementById('cost-hp');
+    const costMpInput = document.getElementById('cost-mp');
+    const recoverHpInput = document.getElementById('recover-hp');
+    const recoverMpInput = document.getElementById('recover-mp');
+    const rewardSkillsInput = document.getElementById('reward-skills');
+    const questList = document.getElementById('quest-list');
+    const statusMessage = document.getElementById('status-message');
+    const rewardAttrsControls = document.getElementById('reward-attrs-controls');
+
+    const updateStatus = (message, isError = false) => {
+        statusMessage.textContent = message;
+        statusMessage.style.color = isError ? '#EF4444' : '#E0E0E0';
+        statusMessage.classList.remove('hidden');
+    };
+    
+    const renderQuests = () => {
+        if (currentQuests.length === 0) {
+             questList.innerHTML = '<p class="text-gray-500 italic mt-8">你的任務清單是空的。請在上方輸入任務並新增！</p>';
+        } else {
+             questList.innerHTML = '';
+             currentQuests.forEach((quest, index) => {
+                const questItem = document.createElement('div');
+                questItem.classList.add('quest-item');
+                questItem.dataset.questIndex = index;
+                
+                let costHtml = `<span class="text-red-400 font-bold">HP -${quest.hpCost}</span>，<span class="text-blue-400 font-bold">MP -${quest.mpCost}</span>`;
+                if (quest.recover.hp > 0 || quest.recover.mp > 0) {
+                    costHtml += `，恢復：<span class="text-green-400 font-bold">HP +${quest.recover.hp}</span>，<span class="text-blue-400 font-bold">MP +${quest.recover.mp}</span>`;
+                }
+                
+                let attrRewardsHtml = Object.keys(quest.rewards.attributes)
+                    .filter(attr => quest.rewards.attributes[attr] > 0)
+                    .map(attr => `${attr.toUpperCase()}+${quest.rewards.attributes[attr]}`)
+                    .join(', ');
+
+                questItem.innerHTML = `
+                    <div class="quest-title">${quest.questDescription}</div>
+                    <div class="text-sm mt-2">
+                        <span class="font-bold">經驗值獎勵：</span><span class="text-green-400">${quest.rewards.exp}</span>
+                    </div>
+                    <div class="text-sm mt-1">
+                        <span class="font-bold">能力值獎勵：</span><span class="text-yellow-400">${attrRewardsHtml || '無'}</span>
+                    </div>
+                    <div class="text-sm mt-1">
+                        <span class="font-bold">消耗/恢復：</span>${costHtml}
+                    </div>
+                    <div class="flex space-x-2 mt-4">
+                        <button class="complete-btn">完成</button>
+                        <button class="delete-btn">刪除</button>
+                    </div>
+                `;
+                questList.appendChild(questItem);
+            });
+        }
+    };
+    
+    rewardAttrsControls.addEventListener('click', (e) => {
+        const target = e.target;
+        if (target.tagName === 'BUTTON') {
+            const attr = target.dataset.rewardAttr;
+            const action = target.dataset.action;
+            
+            if (action === 'increase') {
+                rewardAttributes[attr]++;
+            } else if (action === 'decrease' && rewardAttributes[attr] > 0) {
+                rewardAttributes[attr]--;
+            }
+            updateUI();
+        }
+    });
+
+    addBtn.addEventListener('click', () => {
+        const questDescription = taskInput.value.trim();
+        if (!questDescription) {
+            updateStatus('請輸入一個任務描述！', true);
+            return;
+        }
+
+        const rewardSkills = rewardSkillsInput.value.trim() !== '' ? rewardSkillsInput.value.split(',').map(skill => skill.trim()) : [];
+
+        const newQuest = {
+            questDescription: questDescription,
+            hpCost: parseInt(costHpInput.value),
+            mpCost: parseInt(costMpInput.value),
+            recover: {
+                hp: parseInt(recoverHpInput.value),
+                mp: parseInt(recoverMpInput.value)
+            },
+            rewards: {
+                exp: parseInt(rewardExpInput.value),
+                attributes: {...rewardAttributes},
+                skills: rewardSkills
+            }
+        };
+
+        currentQuests.push(newQuest);
+        renderQuests();
+        taskInput.value = '';
+        updateStatus('任務已新增。', false);
+        
+        // 重設能力值獎勵
+        for (const attr in rewardAttributes) {
+            rewardAttributes[attr] = 0;
+        }
+        updateUI();
+    });
+
+    questList.addEventListener('click', (e) => {
+        const questItem = e.target.closest('.quest-item');
+        if (!questItem) return;
+
+        const index = parseInt(questItem.dataset.questIndex);
+        const quest = currentQuests[index];
+
+        if (e.target.classList.contains('complete-btn')) {
+            const maxHp = 100 + (attributes.con * 10);
+            const maxMp = 100 + (attributes.men * 10);
+
+            // 檢查是否還有足夠的HP和MP
+            const finalHp = currentHp - quest.hpCost + quest.recover.hp;
+            const finalMp = currentMp - quest.mpCost + quest.recover.mp;
+
+            if (finalHp < 0 || finalMp < 0) {
+                 updateStatus('你的體力或專注力不足以完成此任務！', true);
+                 return;
+            }
+            
+            // 扣除並恢復HP與MP
+            currentHp = finalHp;
+            currentMp = finalMp;
+            
+            // 確保HP和MP不會超過最大值
+            currentHp = Math.min(currentHp, maxHp);
+            currentMp = Math.min(currentMp, maxMp);
+            
+            // 增加經驗值
+            exp += quest.rewards.exp;
+            if (exp >= expPerLevel) {
+                level++;
+                exp = exp - expPerLevel;
+                // 每次升級，增加經驗值需求
+                expPerLevel += 50;
+                updateStatus(`恭喜你！等級升級到 LV.${level}！`, false);
+            }
+
+            // 增加能力值
+            for (const attr in quest.rewards.attributes) {
+                attributes[attr] += quest.rewards.attributes[attr];
+            }
+
+            // 學習新技能
+            if (quest.rewards.skills && quest.rewards.skills.length > 0) {
+                const learnedSkillsList = document.getElementById('learned-skills');
+                const unlockedSkillsList = document.getElementById('unlocked-skills');
+                quest.rewards.skills.forEach(skill => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = skill;
+                    learnedSkillsList.appendChild(listItem);
+                });
+            }
+            
+            // 移除任務
+            currentQuests.splice(index, 1);
+
+            // 更新UI
+            updateUI();
+            renderQuests();
+            
+            updateStatus('任務已完成！獎勵已匯入。', false);
+
+        } else if (e.target.classList.contains('delete-btn')) {
+            // 刪除任務
+            currentQuests.splice(index, 1);
+            renderQuests();
+            updateStatus('任務已刪除。', false);
+        }
+    });
+    
+    // 初始化 UI
+    updateUI();
+    renderQuests();
+</script>
+
+</body>
+</html>
